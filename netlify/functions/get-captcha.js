@@ -9,15 +9,17 @@ exports.handler = async function(event, context) {
       return { statusCode: 500, body: 'Failed to fetch captcha page' };
     }
     const html = await res.text();
-    console.log('Fetched HTML:', html.slice(0, 1000)); // Log first 1000 chars for brevity
     const $ = cheerio.load(html);
     let question = '';
-    $('td, span, div').each((i, el) => {
-      const text = $(el).text();
-      if (/\d+\s*\+\s*\d+/.test(text)) {
-        question = text.match(/(\d+\s*\+\s*\d+)/)?.[1];
+    // Find the <input name="value_s">, get its parent <tr>, then the second <td>
+    const input = $('input[name="value_s"]');
+    if (input.length) {
+      const tr = input.closest('tr');
+      const tds = tr.find('td');
+      if (tds.length >= 2) {
+        question = $(tds[1]).text().trim();
       }
-    });
+    }
     console.log('Captcha question:', question);
     if (question) {
       return {
