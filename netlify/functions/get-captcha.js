@@ -1,3 +1,4 @@
+// Requires node-fetch v2 for CommonJS compatibility
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
 
@@ -5,31 +6,26 @@ exports.handler = async function(event, context) {
   try {
     const res = await fetch('http://www.educationboardresults.gov.bd/');
     if (!res.ok) {
-      console.error('Network error:', res.status, res.statusText);
       return { statusCode: 500, body: 'Failed to fetch captcha page' };
     }
     const html = await res.text();
     const $ = cheerio.load(html);
-    let question = '';
-    // Find the <input name="value_s">, get its parent <tr>, then the second <td>
-    const input = $('input[name="value_s"]');
-    if (input.length) {
-      const tr = input.closest('tr');
-      const tds = tr.find('td');
-      if (tds.length >= 2) {
-        question = $(tds[1]).text().trim();
+    let raw = '';
+    // Find the <td> that contains the math question (e.g., '2 + 1')
+    $('td').each((i, el) => {
+      const text = $(el).text().trim();
+      if (/^\d+\s*\+\s*\d+$/.test(text)) {
+        raw = text;
       }
-    }
-    console.log('Captcha question:', question);
-    if (question) {
+    });
+    if (raw) {
       return {
         statusCode: 200,
-        body: JSON.stringify({ question })
+        body: JSON.stringify({ raw })
       };
     }
     return { statusCode: 500, body: 'Captcha not found' };
   } catch (e) {
-    console.error('Error in get-captcha:', e);
-    return { statusCode: 500, body: 'Error fetching captcha' };
+    return { statusCode: 500, body: 'Error fetching captcha: ' + e.message };
   }
 }; 
